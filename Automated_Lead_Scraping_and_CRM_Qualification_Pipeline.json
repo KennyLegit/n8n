@@ -1,0 +1,605 @@
+{
+  "name": "Automated Lead Scraping and CRM Qualification Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "e8f007cc-e874-430b-9f2f-200de957b554",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        336,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "directoryUrl",
+              "value": "<__PLACEHOLDER_VALUE__Public directory API endpoint__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "rssFeedUrl",
+              "value": "<__PLACEHOLDER_VALUE__RSS feed URL for industry news__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "socialApiUrl",
+              "value": "<__PLACEHOLDER_VALUE__Social media API endpoint__>",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "jobBoardUrl",
+              "value": "<__PLACEHOLDER_VALUE__Job board API endpoint__>",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "minEmployees",
+              "value": 50,
+              "type": "number"
+            },
+            {
+              "id": "id-6",
+              "name": "targetIndustries",
+              "value": "[\"Technology\", \"SaaS\", \"Finance\"]",
+              "type": "array"
+            },
+            {
+              "id": "id-7",
+              "name": "minRevenue",
+              "value": 1000000,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "ba3a53bc-73ad-49ba-bc0c-2406aa69b701",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Workflow Configuration').first().json.directoryUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "0ba1c34a-ec32-4974-90da-2174158477e2",
+      "name": "Scrape Public Directory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        784,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Workflow Configuration').first().json.rssFeedUrl }}",
+        "options": {}
+      },
+      "id": "14b7ac8e-8280-4eb0-be52-96eee868f7d5",
+      "name": "Read RSS Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        784,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Workflow Configuration').first().json.socialApiUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "794e44c7-c7e4-4774-b436-d6102c96b562",
+      "name": "Scrape Social Profiles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        784,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Workflow Configuration').first().json.jobBoardUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "88e4f429-467b-43db-b8c7-d6c09c97f3b8",
+      "name": "Scrape Job Boards",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        784,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "b723be48-508b-47be-a528-4aa2d6917ff7",
+      "name": "Merge All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1008,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and normalize lead data from different sources\nconst normalizedLeads = [];\n\nfor (const item of $input.all()) {\n  const source = item.json.source || 'unknown';\n  const rawData = item.json;\n  \n  let lead = {\n    companyName: '',\n    email: '',\n    domain: '',\n    industry: '',\n    employees: null,\n    revenue: null,\n    source: source,\n    rawData: rawData\n  };\n  \n  // Parse based on source type\n  if (source === 'directory' || rawData.type === 'directory') {\n    lead.companyName = rawData.company || rawData.companyName || rawData.name || '';\n    lead.email = rawData.email || rawData.contactEmail || '';\n    lead.domain = rawData.website || rawData.domain || '';\n    lead.industry = rawData.industry || rawData.sector || '';\n    lead.employees = rawData.employees || rawData.employeeCount || null;\n    lead.revenue = rawData.revenue || rawData.annualRevenue || null;\n  } \n  else if (source === 'rss' || rawData.type === 'rss') {\n    // Extract from RSS feed items\n    lead.companyName = rawData.title || rawData.company || '';\n    lead.email = rawData.email || '';\n    lead.domain = rawData.link ? new URL(rawData.link).hostname : '';\n    lead.industry = rawData.category || rawData.industry || '';\n  }\n  else if (source === 'social' || rawData.type === 'social') {\n    lead.companyName = rawData.companyName || rawData.organization || rawData.name || '';\n    lead.email = rawData.email || rawData.contactEmail || '';\n    lead.domain = rawData.website || rawData.url || '';\n    lead.industry = rawData.industry || '';\n    lead.employees = rawData.employeeCount || rawData.size || null;\n  }\n  else if (source === 'jobboard' || rawData.type === 'jobboard') {\n    lead.companyName = rawData.company || rawData.employer || '';\n    lead.email = rawData.applicationEmail || rawData.email || '';\n    lead.domain = rawData.companyWebsite || rawData.website || '';\n    lead.industry = rawData.industry || rawData.sector || '';\n  }\n  else {\n    // Generic fallback parsing\n    lead.companyName = rawData.companyName || rawData.company || rawData.name || '';\n    lead.email = rawData.email || rawData.contactEmail || '';\n    lead.domain = rawData.domain || rawData.website || '';\n    lead.industry = rawData.industry || '';\n    lead.employees = rawData.employees || rawData.employeeCount || null;\n    lead.revenue = rawData.revenue || null;\n  }\n  \n  // Clean up domain (remove protocol, www, etc.)\n  if (lead.domain) {\n    lead.domain = lead.domain.replace(/^(https?:\\/\\/)?(www\\.)?/, '').split('/')[0];\n  }\n  \n  // Convert employee count to number if string\n  if (typeof lead.employees === 'string') {\n    lead.employees = parseInt(lead.employees.replace(/[^0-9]/g, '')) || null;\n  }\n  \n  // Convert revenue to number if string\n  if (typeof lead.revenue === 'string') {\n    lead.revenue = parseFloat(lead.revenue.replace(/[^0-9.]/g, '')) || null;\n  }\n  \n  normalizedLeads.push({ json: lead });\n}\n\nreturn normalizedLeads;"
+      },
+      "id": "04655e81-c94a-4fbb-a807-ebcf02bb9f12",
+      "name": "Parse and Normalize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "leads",
+        "options": {}
+      },
+      "id": "7b341d23-3b5b-484b-9236-d9cd71420825",
+      "name": "Split Leads",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "8e82267c-ce84-46b1-8595-e3c940ce5dc0",
+      "name": "Rate Limit Delay",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        656
+      ],
+      "webhookId": "c22636c9-f464-4238-90b7-991b3f42cee4"
+    },
+    {
+      "parameters": {
+        "domain": "={{ $json.domain }}",
+        "additionalFields": {}
+      },
+      "id": "5f5f7dc8-f4aa-4530-9280-9e74dc835005",
+      "name": "Enrich with Clearbit",
+      "type": "n8n-nodes-base.clearbit",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "enrichedCompanyName",
+              "value": "={{ $json.name || $json.companyName }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "enrichedIndustry",
+              "value": "={{ $json.category?.industry || $json.industry }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "enrichedEmployees",
+              "value": "={{ $json.metrics?.employees || $json.employees }}",
+              "type": "number"
+            },
+            {
+              "id": "id-4",
+              "name": "enrichedRevenue",
+              "value": "={{ $json.metrics?.estimatedAnnualRevenue || $json.revenue }}",
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "enrichedLocation",
+              "value": "={{ $json.geo?.city }}, {{ $json.geo?.state }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "enrichedTech",
+              "value": "={{ $json.tech }}",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "qualificationScore",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "b0c736ad-b268-4ac2-8d38-765994b2c991",
+      "name": "Format Enriched Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2128,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $('Format Enriched Data').item.json.enrichedEmployees }}",
+              "rightValue": "={{ $('Workflow Configuration').first().json.minEmployees }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "id-2",
+              "leftValue": "={{ $('Format Enriched Data').item.json.enrichedRevenue }}",
+              "rightValue": "={{ $('Workflow Configuration').first().json.minRevenue }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "id-3",
+              "leftValue": "={{ $('Format Enriched Data').item.json.enrichedIndustry }}",
+              "rightValue": "={{ $('Workflow Configuration').first().json.targetIndustries }}",
+              "operator": {
+                "type": "array",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d1c9e48e-cefb-41fd-8e7f-b368277abb52",
+      "name": "Check Qualification Criteria",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2352,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "email": "={{ $json.email }}",
+        "additionalFields": {
+          "annualRevenue": "={{ $json.enrichedRevenue }}",
+          "companyName": "={{ $json.enrichedCompanyName }}",
+          "customPropertiesUi": {
+            "customPropertiesValues": [
+              {
+                "property": "lead_source",
+                "value": "={{ $json.source }}"
+              }
+            ]
+          },
+          "industry": "={{ $json.enrichedIndustry }}",
+          "numberOfEmployees": "={{ $json.enrichedEmployees }}"
+        },
+        "options": {}
+      },
+      "id": "da919484-b5f0-4673-9133-36ba817b8bfe",
+      "name": "Add to HubSpot CRM",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [
+        2576,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "rejectionReason",
+              "value": "Did not meet qualification criteria",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "rejectedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "needsReview",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "9e645379-7c5f-47b3-a5e2-9f6f5ed5904c",
+      "name": "Log Rejected Leads",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2576,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "content": "Perfect! I've built your Automated Lead Scraping and CRM Qualification Pipeline. Let me provide you with the comprehensive documentation you requested:\n\n1. 📊 Visual Workflow Diagram\n┌─────────────────────┐\n│  Schedule Trigger   │ (Daily at 9:00 AM)\n│   (Every Day)       │\n└──────────┬──────────┘\n           │\n           ▼\n┌─────────────────────┐\n│    Workflow         │ (Configuration Hub)\n│  Configuration      │ • API Endpoints\n└──────────┬──────────┘ • Qualification Criteria\n           │\n           ├──────────────────┬──────────────────┬──────────────────┐\n           ▼                  ▼                  ▼                  ▼\n    ┌──────────┐      ┌──────────┐      ┌──────────┐      ┌──────────┐\n    │  Scrape  │      │   Read   │      │  Scrape  │      │  Scrape  │\n    │  Public  │      │   RSS    │      │  Social  │      │   Job    │\n    │Directory │      │   Feed   │      │ Profiles │      │  Boards  │\n    └────┬─────┘      └────┬─────┘      └────┬─────┘      └────┬─────┘\n         │                 │                  │                  │\n         └─────────────────┴──────────────────┴──────────────────┘\n                                    │\n                                    ▼\n                          ┌──────────────────┐\n                          │  Merge All       │\n                          │  Sources         │\n                          └────────┬─────────┘\n                                   │\n                                   ▼\n                          ┌──────────────────┐\n                          │  Parse and       │\n                          │  Normalize Data  │\n                          └────────┬─────────┘\n                                   │\n                                   ▼\n                          ┌──────────────────┐\n                          │  Split Leads     │\n                          │  (Individual)    │\n                          └────────┬─────────┘\n                                   │\n                                   ▼\n                          ┌──────────────────┐\n                          │  Rate Limit      │\n                          │  Delay (2s)      │\n                          └────────┬─────────┘\n                                   │\n                                   ▼\n                          ┌──────────────────┐\n                          │  Enrich with     │\n                          │  Clearbit        │\n                          └────────┬─────────┘\n                                   │\n                                   ▼\n                          ┌──────────────────┐\n                          │  Format          │\n                          │  Enriched Data   │\n                          └────────┬─────────┘\n                                   │\n                                   ▼\n                          ┌──────────────────┐\n                          │  Check           │\n                          │  Qualification   │\n                          │  Criteria        │\n                          └────┬─────────┬───┘\n                               │         │\n                    (TRUE)     │         │     (FALSE)\n                               ▼         ▼\n                    ┌──────────────┐  ┌──────────────┐\n                    │  Add to      │  │  Log         │\n                    │  HubSpot CRM │  │  Rejected    │\n                    └──────────────┘  │  Leads       │\n                                      └──────────────┘\n2. 🔧 Required Nodes\nNode Name\tType\tPurpose\nSchedule Trigger\tTrigger\tRuns workflow daily at 9:00 AM\nWorkflow Configuration\tSet\tCentralizes all configuration parameters\nScrape Public Directory\tHTTP Request\tFetches data from public directory API\nRead RSS Feed\tRSS Feed Read\tPulls data from RSS feeds\nScrape Social Profiles\tHTTP Request\tRetrieves data from social media APIs\nScrape Job Boards\tHTTP Request\tScrapes job board listings\nMerge All Sources\tMerge\tCombines data from all 4 sources\nParse and Normalize Data\tCode\tStandardizes data format across sources\nSplit Leads\tSplit Out\tProcesses leads individually\nRate Limit Delay\tWait\t2-second delay to respect API limits\nEnrich with Clearbit\tClearbit\tEnriches company data\nFormat Enriched Data\tSet\tStructures enriched data fields\nCheck Qualification Criteria\tIF\tFilters leads based on criteria\nAdd to HubSpot CRM\tHubSpot\tCreates/updates qualified contacts\nLog Rejected Leads\tSet\tLogs unqualified leads for review\n3. 📋 Step-by-Step Build Guide\nPhase 1: Setup Trigger & Configuration\nStep 1: Add Schedule Trigger\n\nTriggers workflow daily at 9:00 AM\nEnsures consistent lead collection\nStep 2: Add Workflow Configuration node\n\nConnect: Schedule Trigger → Workflow Configuration\nCentralizes all URLs and qualification criteria\nPre-configured with:\nMinimum employees: 50\nTarget industries: Technology, SaaS, Finance\nMinimum revenue: $1,000,000\nPhase 2: Data Collection (Parallel Scraping)\nStep 3: Add 4 Data Source Nodes\n\nConnect all 4 from Workflow Configuration (parallel execution)\n3a. Scrape Public Directory (HTTP Request)\n\nFetches from public business directories\nUses directoryUrl from configuration\n3b. Read RSS Feed (RSS Feed Read)\n\nMonitors industry news feeds\nUses rssFeedUrl from configuration\n3c. Scrape Social Profiles (HTTP Request)\n\nPulls from social media APIs\nUses socialApiUrl from configuration\n3d. Scrape Job Boards (HTTP Request)\n\nExtracts company data from job postings\nUses jobBoardUrl from configuration\nPhase 3: Data Processing\nStep 4: Add Merge All Sources\n\nConnect all 4 scraping nodes → Merge All Sources\nCombines data from all sources into single stream\nMode: \"Combine All Items\"\nStep 5: Add Parse and Normalize Data (Code)\n\nConnect: Merge All Sources → Parse and Normalize Data\nStandardizes data structure:\nExtracts: companyName, email, domain, industry, employees, revenue\nHandles different source formats\nCleans domain names\nConverts strings to numbers\nStep 6: Add Split Leads\n\nConnect: Parse and Normalize Data → Split Leads\nProcesses each lead individually for enrichment\nPhase 4: Enrichment\nStep 7: Add Rate Limit Delay\n\nConnect: Split Leads → Rate Limit Delay\n2-second delay between API calls\nPrevents rate limiting errors\nStep 8: Add Enrich with Clearbit\n\nConnect: Rate Limit Delay → Enrich with Clearbit\nEnriches company data using domain\nAdds: employee count, revenue, location, tech stack\nStep 9: Add Format Enriched Data\n\nConnect: Enrich with Clearbit → Format Enriched Data\nStructures enriched fields:\nenrichedCompanyName\nenrichedIndustry\nenrichedEmployees\nenrichedRevenue\nenrichedLocation\nenrichedTech\nPhase 5: Qualification & CRM Integration\nStep 10: Add Check Qualification Criteria (IF)\n\nConnect: Format Enriched Data → Check Qualification Criteria\nEvaluates 3 conditions (ALL must be true):\nEmployees ≥ 50\nRevenue ≥ $1,000,000\nIndustry in [Technology, SaaS, Finance]\nStep 11a: Add Add to HubSpot CRM (TRUE branch)\n\nConnect: Check Qualification Criteria (output 0) → Add to HubSpot CRM\nCreates/updates contact with:\nEmail, company name, industry\nEmployee count, revenue\nLead source tracking\nStep 11b: Add Log Rejected Leads (FALSE branch)\n\nConnect: Check Qualification Criteria (output 1) → Log Rejected Leads\nLogs unqualified leads with:\nRejection reason\nTimestamp\nReview flag\n⚙️ How to Setup\nConfigure Data Source URLs in Workflow Configuration node:\n\nPublic directory API endpoint\nRSS feed URL for industry news\nSocial media API endpoint\nJob board API endpoint\nAdjust Qualification Criteria (optional):\n\nModify minEmployees (default: 50)\nUpdate targetIndustries array\nChange minRevenue (default: $1,000,000)\nUpdate Parse and Normalize Data code to match your data sources' field names\n\nConsider using specialized scraping services (Phantombuster, Apify, BrightData) for LinkedIn, Facebook, or other platforms with strict terms of service\n\nLet me know if you'd like to adjust anything!",
+        "height": 768,
+        "width": 848,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5146c6be-fba2-4889-882a-dff3434dc71c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Lead generation workflow\na Scrape targeted leads from public sourcesthat can\nPull company or creator data from public directories, RSS feeds, social profiles, or job boards. Enrich with Clearbit/People Data Labs. Push qualified entries into your CRM only when they meet criteria you define.",
+        "height": 304,
+        "width": 400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        112
+      ],
+      "id": "8f264677-583a-4ac7-ac52-b2a4169a3b65",
+      "name": "Sticky Note1"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Scrape Public Directory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read RSS Feed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape Social Profiles",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape Job Boards",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Public Directory": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read RSS Feed": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Scrape Social Profiles": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Scrape Job Boards": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge All Sources": {
+      "main": [
+        [
+          {
+            "node": "Parse and Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Split Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Leads": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit Delay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit Delay": {
+      "main": [
+        [
+          {
+            "node": "Enrich with Clearbit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich with Clearbit": {
+      "main": [
+        [
+          {
+            "node": "Format Enriched Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Enriched Data": {
+      "main": [
+        [
+          {
+            "node": "Check Qualification Criteria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Qualification Criteria": {
+      "main": [
+        [
+          {
+            "node": "Add to HubSpot CRM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Rejected Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": null
+}

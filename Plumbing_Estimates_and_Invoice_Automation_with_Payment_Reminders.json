@@ -1,0 +1,495 @@
+{
+  "name": "Plumbing Estimates and Invoice Automation with Payment Reminders",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-job-request",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "37c5ff70-a556-45cb-bdc6-855c83a704b3",
+      "name": "New Job Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "3fbb13d2-453b-4367-8cb9-b1fb0a3e62f3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "laborRatePerHour",
+              "value": 85,
+              "type": "number"
+            },
+            {
+              "id": "id-2",
+              "name": "materialMarkupPercent",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "id-3",
+              "name": "emergencyFeeMultiplier",
+              "value": 1.5,
+              "type": "number"
+            },
+            {
+              "id": "id-4",
+              "name": "taxRate",
+              "value": 0.08,
+              "type": "number"
+            },
+            {
+              "id": "id-5",
+              "name": "paymentTermsDays",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "id-6",
+              "name": "companyName",
+              "value": "ABC Plumbing Services",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "companyEmail",
+              "value": "billing@abcplumbing.com",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "325c83d9-1de5-48fd-9011-1dd2f500b59f",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get input data from webhook\nconst jobType = $input.item.json.body.jobType || 'General Plumbing';\nconst description = $input.item.json.body.description || '';\nconst laborHours = parseFloat($input.item.json.body.laborHours) || 0;\nconst materialCost = parseFloat($input.item.json.body.materialCost) || 0;\nconst isEmergency = $input.item.json.body.isEmergency === 'true' || $input.item.json.body.isEmergency === true;\nconst customerName = $input.item.json.body.customerName || '';\nconst customerEmail = $input.item.json.body.customerEmail || '';\n\n// Configuration from Workflow Configuration node\nconst laborRate = 85; // $ per hour\nconst taxRate = 0.08; // 8% tax\nconst emergencyFee = 150; // Emergency call-out fee\n\n// Calculate costs\nconst laborCost = laborHours * laborRate;\nconst emergencyCost = isEmergency ? emergencyFee : 0;\nconst subtotal = laborCost + materialCost + emergencyCost;\nconst taxAmount = subtotal * taxRate;\nconst totalCost = subtotal + taxAmount;\n\n// Generate quote number with timestamp\nconst timestamp = new Date().getTime();\nconst quoteNumber = `QUOTE-${timestamp}`;\nconst quoteDate = $today.toFormat('yyyy-MM-dd');\n\n// Return estimate data\nreturn {\n  quoteNumber: quoteNumber,\n  quoteDate: quoteDate,\n  customerName: customerName,\n  customerEmail: customerEmail,\n  jobType: jobType,\n  description: description,\n  laborHours: laborHours,\n  laborRate: laborRate,\n  laborCost: laborCost,\n  materialCost: materialCost,\n  isEmergency: isEmergency,\n  emergencyFee: emergencyCost,\n  subtotal: subtotal,\n  taxRate: taxRate,\n  taxAmount: taxAmount,\n  totalCost: totalCost\n};"
+      },
+      "id": "5ad92d8a-0123-4a19-a7a2-3e3988e6737e",
+      "name": "Calculate Estimate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Your Google Sheets Document ID__>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Estimates"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Quote Number": "={{ $json.quoteNumber }}",
+            "Customer Name": "={{ $json.customerName }}",
+            "Customer Email": "={{ $json.customerEmail }}",
+            "Job Description": "={{ $json.jobDescription }}",
+            "Labor Hours": "={{ $json.laborHours }}",
+            "Labor Cost": "={{ $json.laborCost }}",
+            "Material Cost": "={{ $json.materialCost }}",
+            "Emergency Fee": "={{ $json.emergencyFee }}",
+            "Subtotal": "={{ $json.subtotal }}",
+            "Tax": "={{ $json.tax }}",
+            "Total Amount": "={{ $json.totalAmount }}",
+            "Status": "={{ $json.status }}",
+            "Created Date": "={{ $json.createdDate }}",
+            "Due Date": "={{ $json.dueDate }}"
+          },
+          "matchingColumns": [
+            "Quote Number"
+          ],
+          "schema": [
+            {
+              "id": "Quote Number",
+              "displayName": "Quote Number",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer Name",
+              "displayName": "Customer Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer Email",
+              "displayName": "Customer Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Labor Hours",
+              "displayName": "Labor Hours",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Labor Cost",
+              "displayName": "Labor Cost",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Material Cost",
+              "displayName": "Material Cost",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Emergency Fee",
+              "displayName": "Emergency Fee",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Subtotal",
+              "displayName": "Subtotal",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tax",
+              "displayName": "Tax",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total Amount",
+              "displayName": "Total Amount",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Created Date",
+              "displayName": "Created Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Due Date",
+              "displayName": "Due Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "38cde206-0edb-4268-9090-8e6e004531ff",
+      "name": "Save to Estimates Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.customerEmail }}",
+        "subject": "={{ 'Your Plumbing Estimate - Quote #' + $json.quoteNumber }}",
+        "message": "=<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background-color: #2c5aa0; color: white; padding: 20px; text-align: center; }\n    .content { background-color: #f9f9f9; padding: 20px; margin-top: 20px; }\n    .quote-details { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #2c5aa0; }\n    .breakdown { margin: 20px 0; }\n    .breakdown-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #ddd; }\n    .total { font-size: 1.2em; font-weight: bold; color: #2c5aa0; margin-top: 15px; padding-top: 15px; border-top: 2px solid #2c5aa0; }\n    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 0.9em; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>Plumbing Estimate</h1>\n      <p>Quote #{{ $json.quoteNumber }}</p>\n    </div>\n    \n    <div class=\"content\">\n      <p>Dear {{ $json.customerName }},</p>\n      \n      <p>Thank you for considering our plumbing services. Please find below your detailed estimate for the requested work.</p>\n      \n      <div class=\"quote-details\">\n        <h3>Project Details</h3>\n        <p><strong>Service Type:</strong> {{ $json.serviceType }}</p>\n        <p><strong>Description:</strong> {{ $json.description }}</p>\n        <p><strong>Estimated Date:</strong> {{ $json.estimatedDate }}</p>\n      </div>\n      \n      <div class=\"breakdown\">\n        <h3>Cost Breakdown</h3>\n        <div class=\"breakdown-item\">\n          <span>Labor</span>\n          <span>${{ $json.laborCost }}</span>\n        </div>\n        <div class=\"breakdown-item\">\n          <span>Materials</span>\n          <span>${{ $json.materialsCost }}</span>\n        </div>\n        <div class=\"breakdown-item\">\n          <span>Additional Fees</span>\n          <span>${{ $json.additionalFees }}</span>\n        </div>\n        <div class=\"total\">\n          <div class=\"breakdown-item\">\n            <span>Total Estimate</span>\n            <span>${{ $json.totalEstimate }}</span>\n          </div>\n        </div>\n      </div>\n      \n      <div class=\"quote-details\">\n        <h3>Payment Terms</h3>\n        <ul>\n          <li>50% deposit required to schedule work</li>\n          <li>Remaining balance due upon completion</li>\n          <li>Payment methods: Cash, Check, Credit Card</li>\n          <li>Estimate valid for 30 days</li>\n        </ul>\n      </div>\n      \n      <p>If you have any questions or would like to proceed with this estimate, please don't hesitate to contact us.</p>\n      \n      <p>We look forward to serving you!</p>\n      \n      <p>Best regards,<br>\n      Your Plumbing Team</p>\n    </div>\n    \n    <div class=\"footer\">\n      <p>This is an automated estimate. Please contact us to confirm and schedule your service.</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": true
+        }
+      },
+      "id": "51a00ed0-8df4-4007-a706-8f6e3b9738bb",
+      "name": "Send Estimate Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        896,
+        0
+      ],
+      "webhookId": "e176b0f5-2574-4a6a-a554-bdecb3d5b816"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "aaa51270-5644-467e-801e-e214c7283f6a",
+      "name": "Daily Payment Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Your Google Sheets Document ID__>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Estimates"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupValue": "Sent"
+            },
+            {
+              "lookupValue": "Overdue"
+            }
+          ]
+        },
+        "combineFilters": "OR",
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "fe7f59e4-6801-48c3-ab5a-d9ae82d11e08",
+      "name": "Get Overdue Invoices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ new Date($json.dueDate) < new Date() }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "3c206009-16fb-4842-89e5-cfad6bdaa812",
+      "name": "Check If Overdue",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.customerEmail }}",
+        "subject": "=Payment Reminder - Invoice #{{ $json.quoteNumber }} is Overdue",
+        "message": "=<p>Dear Valued Customer,</p>\n\n<p>This is a friendly reminder that Invoice <strong>#{{ $json.quoteNumber }}</strong> is now overdue.</p>\n\n<h3>Invoice Details:</h3>\n<ul>\n  <li><strong>Invoice Number:</strong> {{ $json.quoteNumber }}</li>\n  <li><strong>Amount Due:</strong> ${{ $json.totalCost }}</li>\n  <li><strong>Due Date:</strong> {{ $json.dueDate }}</li>\n  <li><strong>Days Overdue:</strong> {{ $json.daysOverdue }}</li>\n</ul>\n\n<h3>Payment Instructions:</h3>\n<p>Please submit your payment at your earliest convenience using one of the following methods:</p>\n<ul>\n  <li>Bank Transfer: [Your Bank Details]</li>\n  <li>Check: Made payable to [Your Business Name]</li>\n  <li>Cash: In person at our office</li>\n</ul>\n\n<p>If you have already sent payment, please disregard this notice. If you have any questions or concerns about this invoice, please don't hesitate to contact us.</p>\n\n<p>Thank you for your prompt attention to this matter.</p>\n\n<p>Best regards,<br>\n[Your Business Name]<br>\n[Contact Information]</p>",
+        "options": {}
+      },
+      "id": "ce49d621-7c92-4a62-86de-8f7dbe3cb25c",
+      "name": "Send Payment Reminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        192
+      ],
+      "webhookId": "cf3e2be0-9a4a-4768-9e0b-30c49cd7b280"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Your Google Sheets Document ID__>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Estimates"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Reminder Sent",
+            "Last Reminder Date": "={{ $now.toFormat('yyyy-MM-dd') }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "06b1c1df-df09-49b8-bcfb-d6d05c190ddb",
+      "name": "Update Reminder Sent Date",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        192
+      ]
+    }
+  ],
+  "connections": {
+    "New Job Request": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Calculate Estimate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Estimate": {
+      "main": [
+        [
+          {
+            "node": "Save to Estimates Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Estimates Sheet": {
+      "main": [
+        [
+          {
+            "node": "Send Estimate Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Payment Check": {
+      "main": [
+        [
+          {
+            "node": "Get Overdue Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Overdue Invoices": {
+      "main": [
+        [
+          {
+            "node": "Check If Overdue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Overdue": {
+      "main": [
+        [
+          {
+            "node": "Send Payment Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Payment Reminder": {
+      "main": [
+        [
+          {
+            "node": "Update Reminder Sent Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": null
+}

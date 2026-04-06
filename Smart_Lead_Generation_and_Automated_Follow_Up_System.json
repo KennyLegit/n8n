@@ -1,0 +1,541 @@
+{
+  "name": "Smart Lead Generation and Automated Follow-Up System",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Lead Capture Form",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name"
+            },
+            {
+              "fieldLabel": "Email Address",
+              "fieldType": "email"
+            },
+            {
+              "fieldLabel": "Company"
+            },
+            {
+              "fieldLabel": "Preferred Contact Method",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Email"
+                  },
+                  {
+                    "option": "Slack"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Message/Interest",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Submit Lead"
+        }
+      },
+      "id": "cf6a9698-9ca0-4a22-ab98-1ae81fa6db2a",
+      "name": "Form Lead Capture",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -128,
+        112
+      ],
+      "webhookId": "57e3acc3-2d7d-4166-bd01-69b8b7ad117a"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "social-dm-lead",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "507cbe5d-dd8d-4af6-b141-110031b35e38",
+      "name": "Social DM Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -128,
+        304
+      ],
+      "webhookId": "b97bfca6-bea8-4a34-b18a-0416d820089a"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scraped-list-lead",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "949db505-4e6f-4fb7-b50a-36cfef80a4c1",
+      "name": "Scraped List Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -128,
+        496
+      ],
+      "webhookId": "5a7cecf2-d650-4f23-8fe2-0cf6c43960f5"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "c5926766-dfb7-4fda-8ae8-c7870d010eca",
+      "name": "Merge All Lead Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        96,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "defaultEmailSubject",
+              "value": "Personalized Outreach from Our Team",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "slackDefaultChannel",
+              "value": "<__PLACEHOLDER_VALUE__Slack Channel ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "companyName",
+              "value": "<__PLACEHOLDER_VALUE__Your Company Name__>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "59d18160-ad05-464c-be92-75628395f3a0",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "leadName",
+              "value": "={{ $json.fullName || $json.name || $json.lead_name || 'Unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "leadEmail",
+              "value": "={{ $json.email || $json.email_address || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "leadCompany",
+              "value": "={{ $json.company || $json.company_name || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "leadSource",
+              "value": "={{ $json.source || 'form' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "preferredChannel",
+              "value": "={{ $json.preferredChannel || $json.preferred_channel || 'email' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "leadMessage",
+              "value": "={{ $json.message || $json.notes || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "1048c929-cf8f-4ef9-83e2-49f196b5b5f0",
+      "name": "Normalize Lead Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        544,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<__PLACEHOLDER_VALUE__Google Sheet ID__>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "<__PLACEHOLDER_VALUE__Sheet Name (e.g., Leads)__>"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": null
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "id": "3b607d64-652a-4bf5-b047-0730518d3bd2",
+      "name": "Store Lead in Database",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "message"
+      },
+      "id": "8de378cd-03b8-44ba-8504-4919dc0145c1",
+      "name": "Generate Personalized Message",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        992,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.preferredChannel }}",
+                    "rightValue": "email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.preferredChannel }}",
+                    "rightValue": "slack",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "slack"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "0"
+        }
+      },
+      "id": "3ffac0a6-55c6-4d05-b95f-4dc23e4a7a50",
+      "name": "Route by Channel Preference",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        1344,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.leadEmail }}",
+        "subject": "={{ $('Workflow Configuration').first().json.defaultEmailSubject }}",
+        "emailType": "text",
+        "message": "={{ $json.message }}",
+        "options": {}
+      },
+      "id": "a83a90f1-7a49-4ad9-bad8-e15f34737109",
+      "name": "Send Email Outreach",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        208
+      ],
+      "webhookId": "8363d65c-19e0-4cf4-aad0-45fd94e176f4"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.slackDefaultChannel }}"
+        },
+        "text": "={{ 'New lead: ' + $json.leadName + ' from ' + $json.leadCompany + '\n\n' + $json.message }}",
+        "otherOptions": {}
+      },
+      "id": "635b25ac-f33b-4902-becd-e67a2b02ad01",
+      "name": "Send Slack Message",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1568,
+        400
+      ],
+      "webhookId": "b69a59c2-f297-4ec7-b4bd-917ed4f38de8"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  leadName: $input.first().json.leadName,\n  channel: $input.first().json.preferredChannel,\n  timestamp: new Date().toISOString(),\n  status: \"sent\",\n  message: \"Outreach completed successfully\"\n}];"
+      },
+      "id": "e8b6448c-f511-44c5-b126-6b653c93ca34",
+      "name": "Log Outreach Activity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📊 Smart Lead Generation & Follow-Up System\n1. Visual Workflow Diagram\n┌─────────────────────────────────────────────────────────────────────────┐\n│                         LEAD INPUT SOURCES                               │\n└─────────────────────────────────────────────────────────────────────────┘\n                                    │\n        ┌───────────────────────────┼───────────────────────────┐\n        │                           │                           │\n        ▼                           ▼                           ▼\n┌───────────────┐          ┌───────────────┐          ┌───────────────┐\n│  Form Lead    │          │  Social DM    │          │ Scraped List  │\n│   Capture     │          │   Webhook     │          │   Webhook     │\n│  (n8n Form)   │          │   (POST)      │          │   (POST)      │\n└───────┬───────┘          └───────┬───────┘          └───────┬───────┘\n        │                           │                           │\n        └───────────────────────────┼───────────────────────────┘\n                                    │\n                                    ▼\n                        ┌───────────────────────┐\n                        │  Merge All Lead       │\n                        │  Sources (3 inputs)   │\n                        └───────────┬───────────┘\n                                    │\n                                    ▼\n                        ┌───────────────────────┐\n                        │  Workflow             │\n                        │  Configuration        │\n                        │  (Set Variables)      │\n                        └───────────┬───────────┘\n                                    │\n                                    ▼\n                        ┌───────────────────────┐\n                        │  Normalize Lead Data  │\n                        │  (Standardize Fields) │\n                        └───────────┬───────────┘\n                                    │\n                                    ▼\n                        ┌───────────────────────┐\n                        │  Store Lead in        │\n                        │  Database (Sheets)    │\n                        └───────────┬───────────┘\n                                    │\n                                    ▼\n                        ┌───────────────────────┐\n                        │  Generate             │\n                        │  Personalized Message │\n                        │  (OpenAI GPT)         │\n                        └───────────┬───────────┘\n                                    │\n                                    ▼\n┌─────────────────────────────────────────────────────────────────────────┐\n│                    CHANNEL ROUTING (BRANCHING)                           │\n└─────────────────────────────────────────────────────────────────────────┘\n                                    │\n                        ┌───────────────────────┐\n                        │  Route by Channel     │\n                        │  Preference (Switch)  │\n                        └───────┬───────┬───────┘\n                                │       │\n                    ┌───────────┘       └───────────┐\n                    │                               │\n                    ▼                               ▼\n        ┌───────────────────┐         ┌───────────────────┐\n        │  Send Email       │         │  Send Slack       │\n        │  Outreach (Gmail) │         │  Message          │\n        └─────────┬─────────┘         └─────────┬─────────┘\n                  │                             │\n                  └──────────────┬──────────────┘\n                                 │\n                                 ▼\n                    ┌───────────────────────┐\n                    │  Log Outreach         │\n                    │  Activity (Code)      │\n                    └───────────────────────┘\n2. Required Nodes\nTrigger Nodes (Lead Sources)\nForm Lead Capture - n8n-nodes-base.formTrigger\nSocial DM Webhook - n8n-nodes-base.webhook\nScraped List Webhook - n8n-nodes-base.webhook\nData Processing Nodes\nMerge All Lead Sources - n8n-nodes-base.merge\nWorkflow Configuration - n8n-nodes-base.set\nNormalize Lead Data - n8n-nodes-base.set\nStorage Node\nStore Lead in Database - n8n-nodes-base.googleSheets\nAI Content Generation\nGenerate Personalized Message - @n8n/n8n-nodes-langchain.openAi\nRouting & Output Nodes\nRoute by Channel Preference - n8n-nodes-base.switch\nSend Email Outreach - n8n-nodes-base.gmail\nSend Slack Message - n8n-nodes-base.slack\nLogging Node\nLog Outreach Activity - n8n-nodes-base.code\n3. Step-by-Step Building Guide\nPhase 1: Set Up Lead Input Sources\nStep 1: Configure Form Lead Capture\n\nNode already configured with fields: Full Name, Email, Company, Preferred Contact Method, Message\nForm URL: Available in the node after activation\nUse this for website lead capture forms\nStep 2: Configure Social DM Webhook\n\nWebhook URL: https://kennylegit.app.n8n.cloud/webhook/social-dm-lead\nMethod: POST\nUse this to receive leads from social media automation tools (Zapier, Make, etc.)\nStep 3: Configure Scraped List Webhook\n\nWebhook URL: https://kennylegit.app.n8n.cloud/webhook/scraped-list-lead\nMethod: POST\nUse this to import bulk leads from scraping tools\nPhase 2: Merge & Configure\nStep 4: Merge All Lead Sources\n\nCombines all three input sources into one stream\nMode: Combine All Items\nHandles leads from any source simultaneously\nStep 5: Workflow Configuration\n\nCentralizes workflow settings\nConfigure these placeholders:\nslackDefaultChannel: Your Slack channel ID\ncompanyName: Your company name for personalization\nPhase 3: Normalize & Store\nStep 6: Normalize Lead Data\n\nStandardizes field names from different sources\nMaps variations like fullName, name, lead_name → leadName\nEnsures consistent data structure for downstream nodes\nStep 7: Store Lead in Database\n\nConfigure Google Sheets connection\nSet your Google Sheet ID and Sheet Name\nAuto-maps normalized fields to columns\nCreates permanent record of all leads\nPhase 4: AI Message Generation\nStep 8: Generate Personalized Message\n\nUses OpenAI GPT-4o-mini\nReferences lead source, name, company, and message\nCreates tailored outreach under 150 words\nSystem prompt ensures professional, friendly tone with clear CTA\nPhase 5: Channel Routing (Branching)\nStep 9: Route by Channel Preference\n\nBranching Logic:\nIf preferredChannel = \"email\" → Route to Email Outreach\nIf preferredChannel = \"slack\" → Route to Slack Message\nFallback: Defaults to email if no preference specified\nStep 10: Send Email Outreach\n\nSends via Gmail\nUses AI-generated message\nSubject from Workflow Configuration\nRecipient from normalized lead email\nStep 11: Send Slack Message\n\nPosts to configured Slack channel\nIncludes lead name, company, and AI message\nAlternative to email for internal team notifications\nPhase 6: Activity Logging\nStep 12: Log Outreach Activity\n\nRecords which channel was used\nTimestamps the outreach\nTracks success status\nCan be extended to write back to Google Sheets for reporting\n⚙️ How to Setup\nGoogle Sheets Configuration:\n\nCreate a Google Sheet for lead storage\nCopy the Sheet ID from the URL\nConfigure \"Store Lead in Database\" node with Sheet ID and Sheet Name\nSlack Channel Setup:\n\nGet your Slack Channel ID (right-click channel → View channel details)\nUpdate \"Workflow Configuration\" node's slackDefaultChannel field\nCompany Name:\n\nUpdate \"Workflow Configuration\" node's companyName field with your company name\nWebhook Integration:\n\nCopy webhook URLs from \"Social DM Webhook\" and \"Scraped List Webhook\" nodes\nConfigure your external tools (Zapier, Make, scraping tools) to POST to these URLs\nExpected JSON format:\n{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"company\": \"Acme Corp\",\n  \"source\": \"linkedin\",\n  \"preferred_channel\": \"email\",\n  \"message\": \"Interested in your product\"\n}\nForm URL:\n\nActivate the workflow\nCopy the form URL from \"Form Lead Capture\" node\nEmbed on your website or share directly\nLet me know if you'd like to adjust anything.",
+        "height": 704,
+        "width": 784,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "315f02b2-7497-489e-aad2-1ff90af15168",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "⚙️ How to Setup\nGoogle Sheets Configuration:\n\nCreate a Google Sheet for lead storage\nCopy the Sheet ID from the URL\nUpdate \"Store Lead in Database\" node with your Sheet ID and Sheet Name\nSlack Channel Setup:\n\nGet your Slack Channel ID (right-click channel → View channel details)\nUpdate \"Workflow Configuration\" node's slackDefaultChannel field\nCompany Name:\n\nUpdate \"Workflow Configuration\" node's companyName field with your company name\nWebhook URLs for External Tools:\n\nSocial DM Webhook: https://kennylegit.app.n8n.cloud/webhook/social-dm-lead\nScraped List Webhook: https://kennylegit.app.n8n.cloud/webhook/scraped-list-lead\nConfigure your external tools to POST leads to these URLs\nForm URL:\n\nActivate the workflow to get your form URL from \"Form Lead Capture\" node\nShare this URL or embed it on your website\nLet me know if you'd like to adjust anything.",
+        "height": 592,
+        "width": 384,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        16
+      ],
+      "id": "5de94e47-f700-4ec8-9c10-4d04958f5230",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "The Log Outreach Activity Code node will output a JSON object with the following structure:\n\n{\n  \"leadName\": \"John Doe\",\n  \"channel\": \"email\",\n  \"timestamp\": \"2024-01-15T14:30:45.123Z\",\n  \"status\": \"sent\",\n  \"message\": \"Outreach completed successfully\"\n}\nField Breakdown:\nleadName: The name of the lead from the normalized data (e.g., \"John Doe\", \"Jane Smith\")\n\nchannel: The communication channel used for outreach\n\n\"email\" - if sent via Gmail\n\"slack\" - if sent via Slack\ntimestamp: ISO 8601 formatted timestamp of when the log was created (e.g., \"2024-01-15T14:30:45.123Z\")\n\nstatus: Always returns \"sent\" to indicate successful outreach\n\nmessage: Always returns \"Outreach completed successfully\"\n\nExample Outputs:\nFor Email Outreach:\n\n{\n  \"leadName\": \"Sarah Johnson\",\n  \"channel\": \"email\",\n  \"timestamp\": \"2024-01-15T10:25:30.456Z\",\n  \"status\": \"sent\",\n  \"message\": \"Outreach completed successfully\"\n}\nFor Slack Outreach:\n\n{\n  \"leadName\": \"Michael Chen\",\n  \"channel\": \"slack\",\n  \"timestamp\": \"2024-01-15T11:42:18.789Z\",\n  \"status\": \"sent\",\n  \"message\": \"Outreach completed successfully\"\n}\nUse Cases for This Output:\nYou could extend this node to:\n\nWrite the log back to Google Sheets for tracking\nSend to a monitoring service\nTrigger follow-up workflows based on the channel used\nCreate analytics dashboards\nSet up alerts for failed outreach attempts",
+        "height": 544,
+        "width": 432,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        144
+      ],
+      "id": "37408f67-2265-4406-adaf-b446cfc7ca32",
+      "name": "Sticky Note2"
+    }
+  ],
+  "connections": {
+    "Form Lead Capture": {
+      "main": [
+        [
+          {
+            "node": "Merge All Lead Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Social DM Webhook": {
+      "main": [
+        [
+          {
+            "node": "Merge All Lead Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge All Lead Sources": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Normalize Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Store Lead in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Lead in Database": {
+      "main": [
+        [
+          {
+            "node": "Generate Personalized Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Personalized Message": {
+      "main": [
+        [
+          {
+            "node": "Route by Channel Preference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Channel Preference": {
+      "main": [
+        [
+          {
+            "node": "Send Email Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Outreach": {
+      "main": [
+        [
+          {
+            "node": "Log Outreach Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Log Outreach Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scraped List Webhook": {
+      "main": [
+        [
+          {
+            "node": "Merge All Lead Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": null
+}

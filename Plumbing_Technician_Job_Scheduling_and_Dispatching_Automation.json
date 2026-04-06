@@ -1,0 +1,739 @@
+{
+  "name": "Plumbing Technician Job Scheduling and Dispatching Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "558cde4b-0d5d-42a5-874f-755f3d19ec9b",
+              "name": "Full Name",
+              "value": "={{ $json['Full Name'] }}",
+              "type": "string"
+            },
+            {
+              "id": "5358be0d-b4c5-49fb-820e-3fbf126f6f79",
+              "name": "Phone number",
+              "value": "={{ $json['Phone number'] }}",
+              "type": "string"
+            },
+            {
+              "id": "8fb77432-f45e-4293-b935-50d2aedcd65b",
+              "name": "Email",
+              "value": "={{ $json.Email }}",
+              "type": "string"
+            },
+            {
+              "id": "3be1684d-e0d3-4991-b0b6-bd9331a17664",
+              "name": "Scheduled time",
+              "value": "={{ $json['Scheduled time'] }}",
+              "type": "string"
+            },
+            {
+              "id": "8ee54669-be7a-47cf-ad5c-3bfeaf25827d",
+              "name": "Location ",
+              "value": "={{ $json['Location '] }}",
+              "type": "string"
+            },
+            {
+              "id": "066cb277-edbe-4464-b8b8-ec547b020b59",
+              "name": "Appointment",
+              "value": "={{ $json.submittedAt }}",
+              "type": "string"
+            },
+            {
+              "id": "4e651b2e-bf47-42a5-a0f1-1dcd3f37af34",
+              "name": "Emergency",
+              "value": "={{ $json.IsEmergency }}",
+              "type": "string"
+            },
+            {
+              "id": "id-11",
+              "name": "technicianSheetId",
+              "value": "1taXiSkNNs4m2mMz9mQGYyaICm0DXOOJPVqkR4imunSs",
+              "type": "string"
+            },
+            {
+              "id": "id-12",
+              "name": "jobLogSheetId",
+              "value": "1taXiSkNNs4m2mMz9mQGYyaICm0DXOOJPVqkR4imunSs",
+              "type": "string"
+            },
+            {
+              "id": "id-13",
+              "name": "managerSlackChannel",
+              "value": "C09TSL2TD8F",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "04c201b9-8c7d-4fe7-bfdc-dd010185fe05",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Workflow Configuration').first().json.technicianSheetId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Technicians",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1taXiSkNNs4m2mMz9mQGYyaICm0DXOOJPVqkR4imunSs/edit#gid=0"
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "id": "7f8bf421-5816-496e-87ec-0fb8e2658d0a",
+      "name": "Get Available Technicians",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        352,
+        -192
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TSMUQAWNeTGhtVVt",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pull job data\nconst jobData = $('Workflow Configuration').first().json;\nconst jobLocation = jobData.jobLocation || '';\nconst jobType = jobData.jobType || '';\nconst isEmergency = jobData.isEmergency || false;\nconst requiredSkills = jobData.requiredSkills || [];\n\n// Technicians from Google Sheets\nconst technicians = $input.all();\n\n// Simple distance logic (replace with coordinates if available)\nfunction calculateDistance(loc1, loc2) {\n  if (!loc1 || !loc2) return 20;\n  return loc1.trim().toLowerCase() === loc2.trim().toLowerCase() ? 0 : 10;\n}\n\n// Main scoring pass\nlet scoredTechnicians = technicians.map(t => {\n  const tech = t.json;\n\n  // Skip immediately if not available\n  if (tech.Status !== 'Available') {\n    return { ...tech, score: -1, reason: 'Not available' };\n  }\n\n  let score = 100;\n\n  // Distance\n  const distance = calculateDistance(jobLocation, tech.Location || '');\n  score -= distance * 2;\n\n  // Job type matching (optional column: \"Job Types\")\n  // Example: \"Drain, Install, Maintenance\"\n  let techJobTypes = [];\n  if (tech['Job Types']) {\n    techJobTypes = tech['Job Types']\n      .split(',')\n      .map(v => v.trim().toLowerCase());\n  }\n\n  const jobTypeMatch = techJobTypes.includes(jobType.toLowerCase());\n  if (!jobTypeMatch) {\n    score -= 20; // Weight this however you like\n  }\n\n  // Skills match\n  const techSkills = (tech.Skills || '')\n    .split(',')\n    .map(v => v.trim().toLowerCase());\n\n  const hasRequiredSkills =\n    requiredSkills.length === 0 ||\n    requiredSkills.every(skill => techSkills.includes(skill.toLowerCase()));\n\n  if (!hasRequiredSkills) {\n    score -= 30;\n  }\n\n  // Experience (Years of Experience)\n  const exp = parseInt(tech['Years of Experience']) || 0;\n  score += exp * 5;\n\n  // Emergency handling\n  if (isEmergency) {\n    if (tech.EmergencyAvailable === 'Yes') {\n      score += 25;\n    } else {\n      score -= 40;\n    }\n  }\n\n  return {\n    name: tech.Name,\n    email: tech.Email,\n    phone: tech.Phone,\n    location: tech.Location,\n    score,\n    distance,\n    matchedSkills: hasRequiredSkills,\n    jobTypeMatch\n  };\n});\n\n// Sort + filter\nconst valid = scoredTechnicians\n  .filter(t => t.score > 0)\n  .sort((a, b) => b.score - a.score);\n\n// Output\nif (valid.length > 0) {\n  const best = valid[0];\n  return [\n    {\n      json: {\n        ...jobData,\n        assignedTechnician: best.name,\n        technicianEmail: best.email,\n        technicianPhone: best.phone,\n        matchScore: best.score,\n        technicianFound: true\n      }\n    }\n  ];\n}\n\nreturn [\n  {\n    json: {\n      ...jobData,\n      technicianFound: false,\n      reason: 'No available technicians match the criteria'\n    }\n  }\n];\n"
+      },
+      "id": "f66d8ae8-85f0-46b2-8546-c92184a18415",
+      "name": "Match Best Technician",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $json.technicianFound }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6d892b85-21f2-41e8-a3cc-7988f415ad4e",
+      "name": "Technician Available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.jobLogSheetId }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 834575387,
+          "mode": "list",
+          "cachedResultName": "Job assignments",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1taXiSkNNs4m2mMz9mQGYyaICm0DXOOJPVqkR4imunSs/edit#gid=834575387"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "JobID": "={{ $min(1,5) }}",
+            "Customer Phone": "={{ $json[\"Phone number\"] }}",
+            "Job Type": "={{ $json['Job Type'] }}",
+            "Customer Name": "={{ $json[\"Full Name\"] }}",
+            "Job Location": "={{ $json[\"Location \"] }}",
+            "Technician Email": "={{ $json.technicianEmail }}",
+            "Assigned Technician": "={{ $json.assignedTechnician }}",
+            "technicianFound": "={{ $json.technicianFound }}",
+            "matchScore": "={{ $json.matchScore }}",
+            "assignedTechnician": "={{ $json.assignedTechnician }}",
+            "Email": "={{ $json.Email }}",
+            "Scheduled time": "={{ $json[\"Scheduled time\"] }}",
+            "technicianPhone": "={{ $json.technicianPhone }}",
+            "technicianEmail": "={{ $json.technicianEmail }}",
+            "Appointment": "={{ $json.Appointment }}",
+            "Emergency": "={{ $json.Emergency }}",
+            "IsEmergency": "={{ $json.IsEmergency }}"
+          },
+          "matchingColumns": [
+            "Job Location"
+          ],
+          "schema": [
+            {
+              "id": "JobID",
+              "displayName": "JobID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Type",
+              "displayName": "Job Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer Name",
+              "displayName": "Customer Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Customer Phone",
+              "displayName": "Customer Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Location",
+              "displayName": "Job Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Assigned Technician",
+              "displayName": "Assigned Technician",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Technician Email",
+              "displayName": "Technician Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Scheduled Time",
+              "displayName": "Scheduled Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Full Name",
+              "displayName": "Full Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Phone number",
+              "displayName": "Phone number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Scheduled time",
+              "displayName": "Scheduled time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Location ",
+              "displayName": "Location ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "IsEmergency",
+              "displayName": "IsEmergency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "submittedAt",
+              "displayName": "submittedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "formMode",
+              "displayName": "formMode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Appointment",
+              "displayName": "Appointment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Emergency",
+              "displayName": "Emergency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "technicianSheetId",
+              "displayName": "technicianSheetId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "jobLogSheetId",
+              "displayName": "jobLogSheetId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "managerSlackChannel",
+              "displayName": "managerSlackChannel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "assignedTechnician",
+              "displayName": "assignedTechnician",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "technicianEmail",
+              "displayName": "technicianEmail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "technicianPhone",
+              "displayName": "technicianPhone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "matchScore",
+              "displayName": "matchScore",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "technicianFound",
+              "displayName": "technicianFound",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "4ff02ebf-3a8b-4d5c-a378-35242ad14ca0",
+      "name": "Log Job Assignment",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1024,
+        -288
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "TSMUQAWNeTGhtVVt",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.technicianEmail }}",
+        "subject": "=New Plumbing Job Assignment - {{ $json['Job Type'] }}",
+        "emailType": "text",
+        "message": "=Hi {{ $json.assignedTechnician }},\n\nYou have been assigned a new plumbing job:\n\n📋 Job Details:\n- Job Type: {{ $json['Job Type'] }}\n- Location: {{ $json['Job Location'] }}\n- Customer: {{ $json['Customer Name'] }}\n- Phone: {{ $json['Customer Phone'] }}\n- Priority: {{ $json.IsEmergency? \"🚨 EMERGENCY\" : \"Urgent\" }}\n\n📝 Description:\n{{ $json.jobDescription}}\n\n⏰ Scheduled Time: {{ $json['Scheduled time'] }}\n\nPlease confirm receipt and estimated arrival time.\n\nThank you!",
+        "options": {}
+      },
+      "id": "d11bc1aa-431a-4406-984f-a1b7f87b96c1",
+      "name": "Send Assignment Email to Technician",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1248,
+        -288
+      ],
+      "webhookId": "19579b4c-a35d-4848-ae1d-42a61ce19a23",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "QPraxvz9pRzMN35i",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.managerSlackChannel }}"
+        },
+        "text": "=🚨 *URGENT: No Technician Available*\n\nA job request could not be assigned:\n\n*Job Details:*\n• Type: {{ $json.jobType }}\n• Location: {{ $json.jobLocation }}\n• Customer: {{ $json.customerName }}\n• Phone: {{ $json.customerPhone }}\n• Emergency: {{ $json.isEmergency ? \"YES\" : \"No\" }}\n\n*Reason:* {{ $json.reason }}\n\n*Action Required:* Please manually assign a technician or contact the customer.",
+        "otherOptions": {}
+      },
+      "id": "d48d5063-f7bc-4266-b004-589bdee5fdf5",
+      "name": "Notify Manager - No Technician Available",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        -96
+      ],
+      "webhookId": "eb4e1b4e-89f4-4439-9145-a3960b0d8011",
+      "credentials": {
+        "slackApi": {
+          "id": "GofEplHQy9IpdFNS",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Pica Plumbing form",
+        "formDescription": "Kindly FIl the form",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Phone number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Description of the Problem",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "Scheduled time",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Location ",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "IsEmergency",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "True"
+                  },
+                  {
+                    "option": "Fslse"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -96,
+        -192
+      ],
+      "id": "fe9aa3c8-0a5c-4839-877c-46f202fe4942",
+      "name": "On form submission",
+      "webhookId": "c48982cd-2234-4139-84a6-385ac62a9322"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "plumbing-job-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "423b3783-6955-4c6c-99c4-4ab39a39e0ae",
+      "name": "New Job Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        -16
+      ],
+      "webhookId": "f9ba753f-16e0-4f1b-8224-3386b163dcc8"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"message\": \"No technician available\",\n  \"reason\": \"={{ $json.reason }}\"\n}",
+        "options": {}
+      },
+      "id": "576484cd-e003-4b7d-964b-aab9b946a027",
+      "name": "Send Alert Response to Manager",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -336,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Job assigned successfully\",\n  \"technician\": \"={{ $json.assignedTechnician }}\",\n  \"jobId\": \"={{ $json.jobId }}\"\n}",
+        "options": {}
+      },
+      "id": "39c50f22-c064-4fda-a07f-0890ae71b554",
+      "name": "Send Success Response to Technician",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -336,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "height": 416,
+        "width": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        -160
+      ],
+      "id": "8da5372d-d2b1-462b-a0fd-b7e33c66afdf",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Get Available Technicians",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Technicians": {
+      "main": [
+        [
+          {
+            "node": "Match Best Technician",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Best Technician": {
+      "main": [
+        [
+          {
+            "node": "Technician Available?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Technician Available?": {
+      "main": [
+        [
+          {
+            "node": "Log Job Assignment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Manager - No Technician Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Job Assignment": {
+      "main": [
+        [
+          {
+            "node": "Send Assignment Email to Technician",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Assignment Email to Technician": {
+      "main": [
+        []
+      ]
+    },
+    "Notify Manager - No Technician Available": {
+      "main": [
+        []
+      ]
+    },
+    "New Job Request": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

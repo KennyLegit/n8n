@@ -1,0 +1,1134 @@
+{
+  "name": "Inventory and parts management system",
+  "nodes": [
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1036a9a1-c5e8-49ce-86c6-2e266cbd2c80"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        720,
+        480
+      ],
+      "id": "ffce1022-d191-4d26-9639-03445e13606d",
+      "name": "Switch"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        992,
+        -112
+      ],
+      "id": "f4368375-2bc7-4211-97b7-904bc042225b",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "content": "# job reservation path\n",
+        "width": 448,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -144
+      ],
+      "id": "50029249-5ecd-4442-a4cc-846af2e46aa6",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inventory-job-scheduling",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -352,
+        -112
+      ],
+      "id": "1e38110d-6ff8-4d15-805e-1b8eb37dbc20",
+      "name": "Job Scheduled",
+      "webhookId": "5387d0b1-ff13-4eb7-9755-66dcbc1c39ca"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5af3da58-0cea-4bb1-9947-031957b477d5",
+              "name": "Job_Id",
+              "value": "={{ $json.body['\"job_id\"'] }}",
+              "type": "string"
+            },
+            {
+              "id": "de78f562-a48b-4708-9351-77b048355231",
+              "name": "Parts_id",
+              "value": "={{ $json.body['\"part_ids\"'] }}",
+              "type": "string"
+            },
+            {
+              "id": "8504256f-b9a8-4e2c-bc09-08aa6260e0a7",
+              "name": "Quantities_needed",
+              "value": "={{ $json.body['\"quantities\"'] }}",
+              "type": "array"
+            },
+            {
+              "id": "6add1315-5ce8-4632-80f6-dac33b9433c4",
+              "name": "Scheduled_date",
+              "value": "={{ $json.body['\"scheduled_date\"'] }}",
+              "type": "number"
+            },
+            {
+              "id": "7d51a4a2-7cbf-4539-a21d-76ce254b90af",
+              "name": "Plumber_id",
+              "value": "={{ $json.body['\"plumber_id\"'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        -112
+      ],
+      "id": "0e0fad03-81cc-4f16-b0b1-3126d08862e7",
+      "name": "Parse Job Requirements"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU",
+          "mode": "list",
+          "cachedResultName": "Plumbing inventory master",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Inventory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        96,
+        -112
+      ],
+      "id": "4e25fc3a-f524-4b65-842c-f10d7826e336",
+      "name": "Check part availability",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5MiCBeoA2nqQenZn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $input.first().json;\nconst inventory = $input.all().map(item => item.json);\n\n// Check existence of part_ids and quantities_needed\nif (!Array.isArray(job.part_ids) || !Array.isArray(job.quantities_needed)) {\n  throw new Error('Missing or invalid job.part_ids or job.quantities_needed');\n}\n\nconst results = inventory.map(part => {\n  const partIndex = job.part_ids.indexOf(part.part_id);\n  const neededQty = partIndex !== -1 ? job.quantities_needed[partIndex] : 0;\n  const available = part.available_stock;\n  const isAvailable = available >= neededQty;\n  \n  return {\n    json: {\n      ...part,\n      job_id: job.job_id,\n      plumber_id: job.plumber_id,\n      quantity_needed: neededQty,\n      quantity_available: available,\n      is_available: isAvailable,\n      shortage_qty: isAvailable ? 0 : neededQty - available\n    }\n  };\n});\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -112
+      ],
+      "id": "d810ef18-2e3c-490c-a03d-8798a2f281d2",
+      "name": "Calculate availability status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "be2c8955-5fc9-4bfc-8707-9d859446c8c6",
+              "leftValue": "",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        -112
+      ],
+      "id": "3e7124ec-75a3-4ce4-9e58-a3224b0e8002",
+      "name": "If parts are available"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0A0CD8ARFD",
+          "mode": "list",
+          "cachedResultName": "new-channel"
+        },
+        "text": "=🚨 **PARTS UNAVAILABLE - Action Required**\n*Job:* {{$json[\"job_id\"]}}\n*Part:* {{$json[\"part_name\"]}} ({{$json[\"part_id\"]}})\n*Needed:* {{$json[\"quantity_needed\"]}} units\n*Available:* {{$json[\"quantity_available\"]}} units\n*Shortage:* {{$json[\"shortage_qty\"]}} units\n*Plumber:* {{$json[\"plumber_id\"]}}\n*Job Date:* {{$json[\"job_date\"]}}\n\n**Next Steps:** Reorder parts or reschedule job.",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        768,
+        -16
+      ],
+      "id": "063a47c6-3694-4b77-9ad2-7c48148fc20d",
+      "name": "Alert for Unavilable parts",
+      "webhookId": "c1d9a1d1-a67c-460d-873f-88ad20f4f5c9",
+      "credentials": {
+        "slackApi": {
+          "id": "owmUMZznQ1iq6JcS",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU",
+          "mode": "list",
+          "cachedResultName": "Plumbing inventory master",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Inventory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [
+            "part_id"
+          ],
+          "schema": [
+            {
+              "id": "part_id",
+              "displayName": "part_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "part_name",
+              "displayName": "part_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "current_stock",
+              "displayName": "current_stock",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reserved_stock",
+              "displayName": "reserved_stock",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "available_stock",
+              "displayName": "available_stock",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reorder_point",
+              "displayName": "reorder_point",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "unit_cost",
+              "displayName": "unit_cost",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "supplier_id",
+              "displayName": "supplier_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_updated",
+              "displayName": "last_updated",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        -208
+      ],
+      "id": "d4620d6b-0764-4b31-8913-a0b0694a7a26",
+      "name": "Reserve parts",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5MiCBeoA2nqQenZn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0A03BKSPHD",
+          "mode": "list",
+          "cachedResultName": "social"
+        },
+        "text": "=✅ **Inventory Update Complete**\nJob {{$json[\"job_id\"]}} parts status:\n{{$json[\"is_available\"] ? \"✅ All parts reserved\" : \"❌ Parts unavailable\"}}\nUpdated by: System",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1216,
+        -112
+      ],
+      "id": "4da8e777-b045-4b8b-b5a2-cb06b08023e4",
+      "name": "Confirmation",
+      "webhookId": "92677f62-382c-4053-b960-b99492bcd6c7",
+      "credentials": {
+        "slackApi": {
+          "id": "owmUMZznQ1iq6JcS",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inventory-job-scheduling",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        224
+      ],
+      "id": "3729b75d-776e-47bf-9e25-649b6b279eb8",
+      "name": "Parts Used Trigger",
+      "webhookId": "5387d0b1-ff13-4eb7-9755-66dcbc1c39ca"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e85393ca-b835-4ee0-a6b3-540cf705fb76",
+              "name": "Job_id",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "483b4d9d-bbb6-44b5-b2fa-1318f4256c2d",
+              "name": "Parts_Used",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "d98e06a5-094d-40fb-8364-9d08cb6da57a",
+              "name": "Notes",
+              "value": "=",
+              "type": "string"
+            },
+            {
+              "id": "17a4b0c6-19a6-4e6f-89a8-2773958e6e30",
+              "name": "Update_date",
+              "value": "={{ $today DateTime }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -80,
+        224
+      ],
+      "id": "06c606f1-4101-43b5-8c7b-bd1c54482f0d",
+      "name": "Parse Usage Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $input.first().json;\nconst parts = job.parts_used || [];\n\n// Create one output item per part used\nreturn parts.map(p => ({\n  json: {\n    job_id: job.job_id,\n    part_id: p.part_id,\n    quantity_used: p.quantity,\n    change_type: \"used_on_job\",\n    notes: job.notes,\n    timestamp: job.update_date\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        224
+      ],
+      "id": "07d9bc78-00a9-495b-920b-18ada30df4a9",
+      "name": "Loop over each part"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1taXiSkNNs4m2mMz9mQGYyaICm0DXOOJPVqkR4imunSs",
+          "mode": "list",
+          "cachedResultName": "Plumbing jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1taXiSkNNs4m2mMz9mQGYyaICm0DXOOJPVqkR4imunSs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Technicians",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1taXiSkNNs4m2mMz9mQGYyaICm0DXOOJPVqkR4imunSs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Plumber ID",
+              "displayName": "Plumber ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rating",
+              "displayName": "Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current job",
+              "displayName": "Current job",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        368,
+        224
+      ],
+      "id": "beb603dc-e878-4699-93ec-496aa59db38b",
+      "name": "Update Inventory(Deduct Stock)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5MiCBeoA2nqQenZn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU",
+          "mode": "list",
+          "cachedResultName": "Plumbing inventory master",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 402163576,
+          "mode": "list",
+          "cachedResultName": "Suppliers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit#gid=402163576"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "supplier_id",
+              "displayName": "supplier_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "supplier_name",
+              "displayName": "supplier_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contact_email",
+              "displayName": "contact_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "api_endpoint",
+              "displayName": "api_endpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preferred_contact",
+              "displayName": "preferred_contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        592,
+        224
+      ],
+      "id": "2f0f7b65-d804-4015-b42d-d1d51226c26f",
+      "name": "Log Transaction",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5MiCBeoA2nqQenZn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "#  Build Parts Usage Deduction Path (",
+        "height": 128,
+        "width": 368,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -816,
+        224
+      ],
+      "id": "9b409656-b21b-43bd-8f04-030f7ecb8e46",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "#  Low Stock Reorder Path",
+        "height": 112,
+        "width": 448
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -784,
+        576
+      ],
+      "id": "26591a36-ba1e-4b7f-80fa-4ed165d675bb",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU",
+          "mode": "list",
+          "cachedResultName": "Plumbing inventory master",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Inventory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TXFd_eOLA2Onuwysa9JvQSb0qRpU4S6xrgbRmywEDNU/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        80,
+        576
+      ],
+      "id": "31b50608-10ad-4505-99b8-c41a12bbf850",
+      "name": "Read Full Inventory",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5MiCBeoA2nqQenZn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inventory = $input.all().map(item => item.json);\n\n// Filter items at or below reorder point\nconst lowStockItems = inventory.filter(part => {\n  const available = parseFloat(part.available_stock);\n  const reorder = parseFloat(part.reorder_point);\n  return available <= reorder;\n});\n\nreturn lowStockItems.map(item => ({ json: item }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        576
+      ],
+      "id": "0a2961b2-862e-4f68-8b05-61b163dd1fa5",
+      "name": "Identify Low Stock",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ac7627fa-d035-4831-abc9-83c14e1ae9ce",
+              "leftValue": 0,
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        528,
+        576
+      ],
+      "id": "66ecb54b-a2ba-487d-b38d-6d7be8aad037",
+      "name": "If any items needs reorder"
+    },
+    {
+      "parameters": {
+        "jsCode": "const part = $input.first().json;\nconst reorder_quantity = Math.ceil(part.reorder_point * 3); // 3x safety stock\nconst order_cost = reorder_quantity * parseFloat(part.unit_cost);\n\nreturn [{\n  json: {\n    ...part,\n    reorder_quantity,\n    order_cost: order_cost.toFixed(2),\n    order_date: new Date().toISOString(),\n    delivery_needed: \"ASAP\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        480
+      ],
+      "id": "7a79853a-8be9-4377-9c12-3d065db56b3a",
+      "name": "Calculate Order Quantity"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json[\"contact_email\"]}}",
+        "subject": "=PO: {{$json[\"part_name\"]}} - Qty {{$json[\"reorder_quantity\"]}}",
+        "emailType": "text",
+        "message": "=Purchase Order\n\nSupplier: {{$json[\"supplier_name\"]}}\nPart: {{$json[\"part_name\"]}} ({{$json[\"part_id\"]}})\nQuantity: {{$json[\"reorder_quantity\"]}}\nTotal Cost: ${{json[\"order_cost\"]}}\n\nDelivery Address: Your warehouse address\nPO Number: PO-{{$json[\"supplier_id\"]}}-{{Date.now()}}\n\nPlease confirm shipment within 24 hours.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1184,
+        480
+      ],
+      "id": "9b111b26-a519-4504-beb2-ebe90f0c41f3",
+      "name": "Send Purchase Order",
+      "webhookId": "9f20d645-eaea-4ad3-9df7-40fb261288f5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HsM5mycTUEVKPLIH",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0A0CD8ARFD",
+          "mode": "list",
+          "cachedResultName": "new-channel"
+        },
+        "text": "mbgi",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1408,
+        480
+      ],
+      "id": "780188cd-522a-4c5a-8011-d603f4a7298c",
+      "name": "Send a message",
+      "webhookId": "0381bf39-4e90-4729-bee9-819f8c4dfb3c",
+      "credentials": {
+        "slackApi": {
+          "id": "owmUMZznQ1iq6JcS",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        576
+      ],
+      "id": "e63aeb38-08e6-438b-9b9f-149400034a4b",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "connections": {
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Scheduled": {
+      "main": [
+        [
+          {
+            "node": "Parse Job Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Job Requirements": {
+      "main": [
+        [
+          {
+            "node": "Check part availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check part availability": {
+      "main": [
+        [
+          {
+            "node": "Calculate availability status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate availability status": {
+      "main": [
+        [
+          {
+            "node": "If parts are available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If parts are available": {
+      "main": [
+        [
+          {
+            "node": "Reserve parts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert for Unavilable parts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert for Unavilable parts": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Reserve parts": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parts Used Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Usage Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Usage Data": {
+      "main": [
+        [
+          {
+            "node": "Loop over each part",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop over each part": {
+      "main": [
+        [
+          {
+            "node": "Update Inventory(Deduct Stock)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Inventory(Deduct Stock)": {
+      "main": [
+        [
+          {
+            "node": "Log Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Full Inventory": {
+      "main": [
+        [
+          {
+            "node": "Identify Low Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identify Low Stock": {
+      "main": [
+        [
+          {
+            "node": "If any items needs reorder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If any items needs reorder": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Calculate Order Quantity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Order Quantity": {
+      "main": [
+        [
+          {
+            "node": "Send Purchase Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Purchase Order": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Read Full Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

@@ -1,0 +1,355 @@
+{
+  "name": "Estimates & Invoicing system",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-estimate-request",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1360,
+        192
+      ],
+      "id": "8ffb75d8-0000-45ed-a841-123dd74a88fb",
+      "name": "Estimate requests",
+      "webhookId": "1bc13dfd-7d15-49df-bdfa-59a0bd3f7a0c"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4a9c3b55-e5ea-427a-9d37-84d103a74160",
+              "name": "Customer id",
+              "value": "={{ $json.body['%22customer_id%22'] }}",
+              "type": "string"
+            },
+            {
+              "id": "ac19359f-5838-43db-9364-f8e08d26824c",
+              "name": "Issue type",
+              "value": "={{ $json.body['%22issue_type%22'] }}",
+              "type": "string"
+            },
+            {
+              "id": "28c4c5ea-6a3b-4003-a01c-e5a7a27cb54c",
+              "name": "Estimated hours",
+              "value": "={{ $json.body['%22estimated_hours%22'] }}",
+              "type": "string"
+            },
+            {
+              "id": "77a3d896-2426-49a4-8b3b-c59ee25f4712",
+              "name": "Materials needed",
+              "value": "={{ $json.body['%22materials_needed%22'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1616,
+        192
+      ],
+      "id": "6081d38e-37fe-406d-8651-92962978df5e",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "path": "job-completed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1360,
+        368
+      ],
+      "id": "2aaf4e51-f450-43ba-9196-7340ba29f4e7",
+      "name": "job-completion",
+      "webhookId": "6ee09530-6f5c-4970-95f4-b10c15fa561d"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1V9uctCvEjjPaX533Njx4eippkv5H4mec7v40Z7uCSCA",
+          "mode": "list",
+          "cachedResultName": "Plumbing jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V9uctCvEjjPaX533Njx4eippkv5H4mec7v40Z7uCSCA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1344966685,
+          "mode": "list",
+          "cachedResultName": "customers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V9uctCvEjjPaX533Njx4eippkv5H4mec7v40Z7uCSCA/edit#gid=1344966685"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1824,
+        192
+      ],
+      "id": "fcda710f-9f65-4b20-ba77-d06433b1f363",
+      "name": "Get customer",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "VQIY5PzDocmrfAqP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1V9uctCvEjjPaX533Njx4eippkv5H4mec7v40Z7uCSCA",
+          "mode": "list",
+          "cachedResultName": "Plumbing jobs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V9uctCvEjjPaX533Njx4eippkv5H4mec7v40Z7uCSCA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1199887377,
+          "mode": "list",
+          "cachedResultName": "pricing",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V9uctCvEjjPaX533Njx4eippkv5H4mec7v40Z7uCSCA/edit#gid=1199887377"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2064,
+        192
+      ],
+      "id": "7fa47f1e-72e1-4a78-b4f4-54165092a278",
+      "name": "Get pricing",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "VQIY5PzDocmrfAqP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $input.first().json;\nconst labor_rate = job.labor_rate_hourly || 85; // $85/hr default\nconst contingency = job.contingency_pct || 20; // 20% default\n\nconst labor_cost = job.est_hours * labor_rate;\nconst materials_cost = job.est_materials_cost || 150; // Estimated materials\nconst contingency_amount = (labor_cost + materials_cost) * (contingency / 100);\n\nconst total_estimate = labor_cost + materials_cost + contingency_amount;\n\nreturn [{\n  json: {\n    ...job,\n    labor_cost,\n    materials_cost,\n    contingency_amount,\n    total_estimate,\n    estimate_valid_days: 7\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        192
+      ],
+      "id": "00fd482f-9198-41f1-a768-5cff8110f738",
+      "name": "Calculate estimate"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.craftmypdf.com/v1/create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "a342MjY0MTc6MjY1Njk6OVM3bzdoeVE0ZzdGN0xqcg="
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "template_id",
+              "value": "62177b23d4b1ab38"
+            },
+            {
+              "name": "export_type",
+              "value": "json"
+            },
+            {
+              "name": "expiration",
+              "value": "10"
+            },
+            {
+              "name": "output_file",
+              "value": "estimates.pdf"
+            },
+            {
+              "name": "data",
+              "value": "={{ $json.labor_rate_hourly }}{{ $json.contingency_pct }}{{ $json.materials_cost }}{{ $json.total_estimate }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2576,
+        192
+      ],
+      "id": "1010a911-2289-45ee-a278-2446cfea6cac",
+      "name": "Create PDF"
+    },
+    {
+      "parameters": {
+        "sendTo": "obinobinwakennedy2019@gmail.com ",
+        "subject": "Your plumbing estimate ",
+        "message": "=<h2>Hi {{ $('Get customer').item.json.name}}, </h2>\n<p><strong>Total Estimate:</strong> ${{ $('Calculate estimate').item.json.total_estimate }}</p>\n<ul>\n  <li>Labor {{ $('Calculate estimate').item.json.labor_rate_hourly }}( hrs): ${{ $('Calculate estimate').item.json.labor_cost }} </li>\n  <li>Materials: ${{ $('Calculate estimate').item.json.materials_cost }} </li>\n  <li>Contingency ({{ $('Calculate estimate').item.json.contingency_pct }}%): ${{ $('Calculate estimate').item.json.contingency_amount }} </li>\n</ul>\n<p><a href=\"https://yourapp.com/approve?job=>✅ Approve Online</a></p>\n<p>Valid for {{ $('Calculate estimate').item.json.estimate_valid_days }} days.\n\n{{ $json.file }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2816,
+        192
+      ],
+      "id": "61d4c439-af6c-428d-9d87-4f66d5d662d6",
+      "name": "Send a message",
+      "webhookId": "f488ffd5-e751-446f-a09f-4f4acc15d01c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Ws3MyrYLMsTynOXD",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Estimate requests": [
+      {
+        "json": {
+          "headers": {
+            "host": "kennylegit.app.n8n.cloud",
+            "user-agent": "PostmanRuntime/7.50.0",
+            "content-length": "715",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cache-control": "no-cache",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "54.86.50.139",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "US",
+            "cf-ray": "9a8049c687818e97-IAD",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryArA0cwSA6Ii12yLd",
+            "postman-token": "e9cdbc9f-c757-49eb-ada8-b780c2a4a710",
+            "x-forwarded-for": "54.86.50.139, 104.23.211.66",
+            "x-forwarded-host": "kennylegit.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-30-6d57d45df-jbv7d",
+            "x-is-trusted": "yes",
+            "x-real-ip": "54.86.50.139"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "{": "",
+            "%22customer_id%22": " \"CUST-123\",",
+            "%22issue_type%22": " \"water_heater_replacement\",",
+            "%22estimated_hours%22": " 3,",
+            "%22materials_needed%22": " [\"tank\", \"pipes\", \"valves\"]",
+            "}": ""
+          },
+          "webhookUrl": "https://kennylegit.app.n8n.cloud/webhook-test/new-estimate-request",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Estimate requests": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Get customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get customer": {
+      "main": [
+        [
+          {
+            "node": "Get pricing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get pricing": {
+      "main": [
+        [
+          {
+            "node": "Calculate estimate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate estimate": {
+      "main": [
+        [
+          {
+            "node": "Create PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create PDF": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a08e8608-46d6-4e6b-9542-2f292fe55bfe",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c42f83d540720b8f357979f51c4c63af0616d29a40db21ebfca3eb019b134742"
+  },
+  "id": "PzWPe6HiEHvRn8hM",
+  "tags": []
+}

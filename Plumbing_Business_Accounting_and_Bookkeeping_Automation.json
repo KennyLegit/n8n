@@ -1,0 +1,280 @@
+{
+  "name": "Plumbing Business Accounting and Bookkeeping Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "📊 Workflow Overview\nPurpose: Automatically process daily financial transactions, calculate payroll/taxes, maintain accounting records, and generate monthly financial reports.\n\n🔄 How It Works\nDaily Processing (Every Day at Midnight)\nDaily Trigger - Runs automatically at 12:00 AM every day\nWorkflow Configuration - Centralizes workflow settings and parameters\nRead Daily Transactions - Pulls transaction data from a Google Sheet (invoices, payments, expenses from plumbing jobs)\nCalculate Payroll & Taxes - Processes the transactions to compute:\nEmployee payroll calculations\nTax withholdings\nBusiness tax obligations\nProfit/loss calculations\nSave to Accounting Ledger - Writes the processed data back to a Google Sheet for record-keeping\nMonthly Reporting (Conditional)\nCheck Report Period - Determines if it's time to generate a monthly report\nIf YES → Proceeds to generate report\nIf NO → Skips to end\nGenerate Financial Report - Creates a comprehensive monthly financial summary\nSave Monthly Report - Stores the report in a Google Sheet\n🔧 Plumbing Business Use Case\nThis workflow helps plumbing businesses by:\n\nTracking daily revenue from service calls, installations, repairs\nManaging expenses like parts, fuel, equipment\nCalculating payroll for plumbers and staff\nMonitoring cash flow and profitability\nGenerating monthly reports for tax filing and business analysis\nEliminating manual data entry and calculation errors\n⚠️ Current Status\nThe workflow is not fully configured and needs:\n\nGoogle Sheets credentials\nSpecific spreadsheet IDs for transactions and ledger\nJavaScript code for payroll/tax calculations\nLogic for the report period check\nCode for financial report generation\nLet me know if you'd like me to help complete the configuration or modify any part of this workflo",
+        "height": 432,
+        "width": 624
+      },
+      "id": "ea46212e-2752-4667-847a-7ba35d336ec7",
+      "name": "📋 WORKFLOW EXPLANATION",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "259c63d2-9ca2-4752-a950-7c0fb39ed05a",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        352,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "2cd29d8e-8190-49d4-8b3d-26b6096d2566",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        576,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "id": "2ba72a71-2f03-438b-8f41-27d1ddb8ef6a",
+      "name": "Read Daily Transactions",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        800,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "id": "1abcddcf-241e-4976-96e9-05bae2e6b2aa",
+      "name": "Calculate Payroll & Taxes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d41d5615-c853-47f6-a515-5e1e386cd339",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0e9ecb24-0190-41d4-91d9-aa89695f1c6c",
+      "name": "Check Report Period",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        112
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f05c8243-e7d3-406e-ada3-ea7e5ec7899e",
+      "name": "Generate Financial Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "id": "7ed1de88-5599-4b5e-ba48-c26da77490a8",
+      "name": "Save to Accounting Ledger",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1248,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        }
+      },
+      "id": "5adc3a01-6f76-4470-b8ec-cff08856d340",
+      "name": "Save Monthly Report",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1920,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "7b590047-934e-46ce-96cd-cf7d421db439",
+      "name": "Skip Report Generation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1696,
+        208
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Read Daily Transactions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Daily Transactions": {
+      "main": [
+        [
+          {
+            "node": "Calculate Payroll & Taxes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Payroll & Taxes": {
+      "main": [
+        [
+          {
+            "node": "Save to Accounting Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Accounting Ledger": {
+      "main": [
+        [
+          {
+            "node": "Check Report Period",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Report Period": {
+      "main": [
+        [
+          {
+            "node": "Generate Financial Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Report Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Financial Report": {
+      "main": [
+        [
+          {
+            "node": "Save Monthly Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": null
+}
